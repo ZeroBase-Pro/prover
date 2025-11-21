@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+option go_package = ".";
+package circom_prove;
+
+// Request message for the Prove method
+message ProveRequest {
+  string input = 1; // The input data to be processed, typically in JSON format
+  string temp = 2;  // The identifier of the circuit template to use
+}
+
+// Request message for methods that require a length parameter
+message ProveNosha256Request {
+  string input = 1; // The input data to be processed, typically in JSON format
+  string temp = 2;  // The identifier of the circuit template to use
+  int32 length = 3; // The length of the input data to be used in processing
+}
+
+// Response message for the Prove method
+message ProveResponse {
+  int32 code = 1;   // Status code: 0 indicates success, -1 indicates failure
+  string msg = 2;   // Message describing the result; "Successfully" if succeeded, or an error message if failed
+  string proof = 3; // The generated proof in string format; empty if failed
+}
+
+// Response message for the ProveWithWitness method
+message ProveWithWitnessResponse {
+  int32 code = 1;     // Status code: 0 indicates success, -1 indicates failure
+  string msg = 2;     // Message describing the result; "Successfully" if succeeded, or an error message if failed
+  string witness = 3; // The generated public witness data in string format; empty if failed
+  string proof = 4;   // The generated proof in string format; empty if failed
+}
+
+// Response message for the ProveNosha256 method
+message ProveNosha256Response {
+  int32 code = 1;   // Status code: 0 indicates success, -1 indicates failure
+  string msg = 2;   // Message describing the result; "Successfully" if succeeded, or an error message if failed
+  string proof = 3; // The generated proof in string format; empty if failed
+}
+
+// Response message for the ProveNosha256WithWitness method
+message ProveNosha256WithWitnessResponse {
+  int32 code = 1;     // Status code: 0 indicates success, -1 indicates failure
+  string msg = 2;     // Message describing the result; "Successfully" if succeeded, or an error message if failed
+  string witness = 3; // The generated public witness data in string format; empty if failed
+  string proof = 4;   // The generated proof in string format; empty if failed
+}
+
+// Response message for the ProveNosha256Offchain method
+message ProveNosha256OffchainResponse {
+  int32 code = 1;     // Status code: 0 indicates success, -1 indicates failure
+  string msg = 2;     // Message describing the result; "Successfully" if succeeded, or an error message if failed
+  string witness = 3; // The generated public witness data in string format; empty if failed
+  bytes proof = 4;    // The generated proof in binary format; empty if failed
+}
+
+message ProveResponseV2 {
+  int32 code = 1;
+  string msg = 2;
+  string proof = 3;
+  string proof_solidity = 4;
+  bytes proof_bytes = 5;
+  string public_witness = 6;
+  bytes public_witness_bytes = 7;
+}
+
+// Response message for the GetRunningProveTasks method
+message GetRunningProveTasksResponse {
+  int32 code = 1;   // Status code: 0 indicates success, -1 indicates failure
+  string msg = 2;   // Message describing the result; "Successfully" if succeeded, or an error message if failed
+  int32 count = 3;  // The number of currently running prove tasks
+}
+
+// Empty message used for methods that do not require any parameters
+message Empty {}
+
+// Response message for the Ping method
+message PingResponse {
+  int32 code = 1;   // Status code: 0 indicates success
+  string msg = 2;   // Message describing the result
+  string version = 3; // Server version information
+  int64 timestamp = 4; // Server timestamp
+}
+
+// Service definition
+service ProveService {
+  // Ping method to check server health and get basic information
+  rpc Ping(Empty) returns (PingResponse);
+
+  // Retrieves the number of currently running prove tasks
+  rpc GetRunningProveTasks(Empty) returns (GetRunningProveTasksResponse);
+
+  // Processes the input and returns a proof
+  rpc Prove(ProveRequest) returns (ProveResponse);
+
+  // Processes the input and returns both a proof and public witness data
+  rpc ProveWithWitness(ProveRequest) returns (ProveWithWitnessResponse);
+
+  // Processes the input without SHA256 verification and returns a proof
+  rpc ProveNosha256(ProveNosha256Request) returns (ProveNosha256Response);
+
+  // Processes the input without SHA256 verification and returns both a proof and public witness data
+  rpc ProveNosha256WithWitness(ProveNosha256Request) returns (ProveNosha256WithWitnessResponse);
+
+  // Processes the input without SHA256 verification and returns an off-chain proof and public witness data
+  rpc ProveNosha256Offchain(ProveNosha256Request) returns (ProveNosha256OffchainResponse);
+
+  rpc ProveV2(ProveNosha256Request) returns (ProveResponseV2);
+}
+

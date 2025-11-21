@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package prove_service;
+
+message ProveBaseRequest {
+  string prover_id = 1;            // Unique identifier for the prover
+  string circuit_template_id = 2;  // Circuit template identifier
+  string input_data = 3;           // Input data used to generate the proof
+  bool is_encrypted = 4;           // True if the input data is encrypted
+  string auth_token = 5;           // Authentication token
+}
+
+message StatusResponse {
+  int32 code = 1; // Status code
+  string msg = 2; // Additional status information
+}
+
+message ProveRequest {
+  ProveBaseRequest base_request = 1;  // Base request for all proof requests
+  int32 method = 2;                   // Optional: Method (default value is zkLogin)
+  string oauth_provider = 3;          // Optional: OAuth provider (default value is google)
+}
+
+message ProveWithWitnessRequest {
+  ProveBaseRequest base_request = 1; // Base request for all proof requests
+  int32 method = 2;                   // Optional: Method (default value is zkLogin)
+  string oauth_provider = 3;          // Optional: OAuth provider (default value is google)
+}
+
+message ProveNosha256Request {
+  ProveBaseRequest base_request = 1; // Base request for all proof requests
+  int32 length = 2; // Length of the input data
+  int32 method = 3;                   // Optional: Method (default value is zkLogin)
+  string oauth_provider = 4;          // Optional: OAuth provider (default value is google)
+}
+
+message ProveNosha256WithWitnessRequest {
+  ProveBaseRequest base_request = 1; // Base request for all proof requests
+  int32 length = 2; // Length of the input data
+  int32 method = 3;                   // Optional: Method (default value is zkLogin)
+  string oauth_provider = 4;          // Optional: OAuth provider (default value is google)
+}
+
+message ProveNosha256OffchainRequest {
+  ProveBaseRequest base_request = 1; // Base request for all proof requests
+  int32 length = 2; // Length of the input data
+  int32 method = 3;                   // Optional: Method (default value is zkLogin)
+  string oauth_provider = 4;          // Optional: OAuth provider (default value is google)
+}
+
+message GetPublicKeyResponse {
+  StatusResponse base_response = 1; // Status code and message
+  string public_key = 2; // Retrieved public key string
+}
+
+message ProveResponse {
+  StatusResponse base_response = 1; // Status code and message
+  string proof_data = 2; // Generated proof data
+}
+
+message ProveWithWitnessResponse {
+  StatusResponse base_response = 1; // Status code and message
+  string proof_data = 2; // Generated proof data
+  string witness_data = 3; // Additional witness data related to the proof
+}
+
+message ProveNosha256Response {
+  StatusResponse base_response = 1; // Status code and message
+  string proof_data = 2; // Generated proof data
+}
+
+message ProveNosha256WithWitnessResponse {
+  StatusResponse base_response = 1; // Status code and message
+  string proof_data = 2; // Generated proof data
+  string witness_data = 3; // Additional witness data related to the proof
+}
+
+message ProveNosha256OffchainResponse {
+  StatusResponse base_response = 1; // Status code and message
+  bytes proof_data = 2; // Generated proof data
+  string witness_data = 3; // Additional witness data related to the proof
+}
+
+message Empty {
+  // An empty message used for requests or responses that don't require additional parameters
+}
+
+service ProveService {
+  rpc Prove(ProveRequest) returns (ProveResponse); // Generates a proof using the provided parameters
+  rpc ProveWithWitness(ProveWithWitnessRequest) returns (ProveWithWitnessResponse); // Generates a proof with witness
+  rpc ProveNosha256(ProveNosha256Request) returns (ProveNosha256Response);  // Processes the input without SHA256 and returns a proof
+  rpc ProveNosha256WithWitness(ProveNosha256WithWitnessRequest) returns (ProveNosha256WithWitnessResponse);  // Processes the input without SHA256 and returns a proof and witness
+  rpc ProveNosha256Offchain(ProveNosha256OffchainRequest) returns (ProveNosha256OffchainResponse); // Processes the input without SHA256 and returns a proof and witness for offchain verify
+  rpc GetPublicKey(Empty) returns (GetPublicKeyResponse); // Retrieves the public key for encrypting input data
+  rpc Ping(Empty) returns (Empty); // Ping for health check or to keep the connection alive
+}

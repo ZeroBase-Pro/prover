@@ -1,0 +1,42 @@
+// File: prove_service_v2.proto
+// Description: ProveService gRPC definitions for zero-knowledge proof generation,
+
+syntax = "proto3";
+
+package prove_service.v2;
+
+import "google/protobuf/empty.proto";
+
+message GenerateProofRequest {
+  string prover = 1;
+  string circuit_template_id = 2;
+  string payload = 3;
+  int32 length = 4;
+  bool is_encrypted = 5;
+  string auth_token = 6;
+  int32 task_type = 7;
+  string oauth_provider = 8;
+  string proof_hash = 9;
+}
+
+message GenerateProofResponse {
+  int32 code = 1;
+  string msg = 2;
+  string proof = 3;
+  string proof_solidity = 4;
+  bytes proof_bytes = 5;
+  string public_witness = 6;
+  bytes public_witness_bytes = 7;
+}
+
+message GetPublicKeyResponse {
+  int32 code = 1;
+  string msg = 2;
+  string public_key = 3;
+}
+
+service ProveService {
+  rpc Prove(GenerateProofRequest) returns (GenerateProofResponse);
+  rpc GetPublicKey(google.protobuf.Empty) returns (GetPublicKeyResponse);
+  rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
+}

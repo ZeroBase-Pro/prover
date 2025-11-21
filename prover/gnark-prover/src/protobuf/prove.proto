@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+option go_package = ".";
+package gnark_prover;
+
+// Request message for the Prove method
+message ProveRequest {
+  string input = 1; // The input data to be processed, typically in JSON format
+  string temp = 2;  // The identifier of the circuit template to use
+}
+
+message ProveResponseV2 {
+  int32 code = 1;
+  string msg = 2;
+  string proof = 3;
+  string proof_solidity = 4;
+  bytes proof_bytes = 5;
+  string public_witness = 6;
+  bytes public_witness_bytes = 7;
+}
+
+// Response message for the GetRunningProveTasks method
+message GetRunningProveTasksResponse {
+  int32 code = 1;   // Status code: 0 indicates success, -1 indicates failure
+  string msg = 2;   // Message describing the result; "Successfully" if succeeded, or an error message if failed
+  int32 count = 3;  // The number of currently running prove tasks
+}
+
+// Empty message used for methods that do not require any parameters
+message Empty {}
+
+// Service definition
+service ProveService {
+  // Retrieves the number of currently running prove tasks
+  rpc GetRunningProveTasks(Empty) returns (GetRunningProveTasksResponse);
+
+  rpc ProveTigaOffchain(ProveRequest) returns (ProveResponseV2);
+  rpc ProveBinanceOffchain(ProveRequest) returns (ProveResponseV2);
+  rpc ProveMerkleOffchain(ProveRequest) returns (ProveResponseV2);
+  
+  // Health check endpoint - returns pong response
+  rpc Ping(Empty) returns (Empty);
+}

@@ -1,0 +1,55 @@
+# Git related
+.git
+.gitignore
+.gitattributes
+
+# IDE and editors
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Build and dependency cache
+.cache
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Test coverage reports
+coverage.out
+*.test
+
+# Build artifacts
+gnark-prover
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Docker related
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Other unnecessary files
+input/
+wtns/
+.env
+.env.local

@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  hub:
+    image: hub:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hub-container
+    ports:
+      # Host and container ports can be controlled via environment variables.
+      # If a config file is provided (see `run.sh start <config>`), the script will try to read the port value
+      # and set these variables automatically.
+      - "${HOST_PORT:-8000}:${CONTAINER_PORT:-8000}"
+    environment:
+      # Application environment
+      - PYTHONPATH=/app/src
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Allow overriding container config by mounting a host file via HUB_CONFIG env var.
+      # Falls back to the repository's ./src/config/hub.py by default (backwards compatible).
+      # Example: HUB_CONFIG=./configs/local_hub.py docker-compose up -d
+      - ${HUB_CONFIG:-./src/config/hub.py}:/app/src/config/hub.py:ro
+      - ./src/crypto_keys:/app/src/crypto_keys
+      - ./src/session_keys:/app/src/session_keys
+    restart: unless-stopped
+    networks:
+      - prover-network
+
+# Define networks
+networks:
+  prover-network:
+    driver: bridge

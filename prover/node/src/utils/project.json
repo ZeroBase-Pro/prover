@@ -1,0 +1,10 @@
+{   
+    "10000": {"project_name":"Xar", "verifiers": [{"name": "Garaga"}]},
+    "10001": {"project_name":"Tiga", "verifiers": [{"name": "Zkverify"}, {"name":"Aligned"}]},
+    "10002": {"project_name":"Tomo-gmail", "verifiers": [{"name": "Local"}]},
+    "10003": {"project_name":"Tomo-telegram", "verifiers": [{"name": "Local"}]},
+    "10004": {"project_name":"Any-Search", "verifiers": [{"name": "Local"}]},
+    "10005": {"project_name":"Zerobase-Stake", "verifiers": [{"name": "Zkverify"}, {"name":"Aligned"}]},
+    "10006": {"project_name":"slm-SMS", "verifiers": [{"name": "Local"}]},
+    "10007": {"project_name":"slm-Email", "verifiers": [{"name": "Local"}]}
+}
