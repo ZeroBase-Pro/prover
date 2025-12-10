@@ -35,7 +35,7 @@ RUN chmod -R 755 /app/src/crypto_keys \
     && chmod -R 755 /app/src/session_keys
 
 # Expose application port
-EXPOSE 8000
+EXPOSE 9000
 
 # Default start command
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "9000", "--workers", "4"]

@@ -27,7 +27,7 @@ This repository is intended to run on a server-grade machine with a Trusted Exec
 ## Prerequisites
 
 - Docker and Docker Compose installed; ability to run `sudo docker ...`.
-- Network Access: Inbound access must be allowed on the chosen hub port (default: `8000`) for prover nodes to connect.
+- Network Access: Inbound access must be allowed on the chosen hub port (default: `9000`) for prover nodes to connect.
 - Configuration: update `src/config/hub.py` (or prepare your own config file with the same `Config` structure). The hub port is read from `Server.Sanic.port`. If you pass a custom config to `run.sh start`, the script will parse that port automatically.
 - Keys: place `private_key` and `public_key` inside `src/session_keys/`. You can generate a pair with `python -m src.utils.cli init_keys --path src/session_keys`.
 - Optional: add any required materials under `src/crypto_keys/` if your deployment relies on them.
@@ -46,7 +46,7 @@ class Config:
     class Server:
         class Sanic:
             host = "0.0.0.0"
-            port = YOUR_DESIRED_PORT_NUMBER  # e.g., 8000
+            port = YOUR_DESIRED_PORT_NUMBER  # e.g., 9000
             forwarded_secret = "ABCDEFG"
             real_ip_header = "cf-connecting-ip"
             proxies_count = 2
@@ -62,14 +62,14 @@ class Config:
 Pick the run mode that matches your setup (all commands from repo root):
 
 ```bash
-# 1) Start with in-repo config (uses src/config/hub.py, default port 8000)
+# 1) Start with in-repo config (uses src/config/hub.py, default port 9000)
 sudo ./run.sh start
 
 # 2) Start with a custom config file (port is parsed from the file)
 sudo ./run.sh start ./configs/local_hub.py
 ```
 
-The script sets `HOST_PORT`/`CONTAINER_PORT` using the first `port = <number>` it finds in the provided config and mounts that file into the container as `/app/src/config/hub.py`. If parsing fails, it falls back to port `8000`.
+The script sets `HOST_PORT`/`CONTAINER_PORT` using the first `port = <number>` it finds in the provided config and mounts that file into the container as `/app/src/config/hub.py`. If parsing fails, it falls back to port `9000`.
 
 ## Managing the Container
 
@@ -87,7 +87,7 @@ Under the hood, Compose brings up a single service `hub` (container `hub-contain
 
 - Check containers: `sudo docker compose ps`
 - Tail logs: `sudo docker compose logs -f hub`
-- Reachability: open `http://localhost:8000` (or your configured port) from a node or via `curl` to confirm the listener is up.
+- Reachability: open `http://localhost:9000` (or your configured port) from a node or via `curl` to confirm the listener is up.
 
 Deploy notes:
 - Keep your config and key files present on the host; they are mounted read-only into the container.
