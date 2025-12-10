@@ -60,7 +60,7 @@ build_container() {
 #   If provided, it will be mounted to /app/src/config/hub.py in the container
 start_container() {
     local config_path=${2:-}
-    local port="8000"
+    local port="9000"
     echo -e "${BLUE}Starting container...${NC}"
 
     if [ -n "$config_path" ]; then
@@ -69,8 +69,8 @@ start_container() {
             # Extract the first valid port
             port=$(sed -nE 's/.*port[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' "$config_path" | head -n1)
             if [ -z "$port" ]; then
-                port="8000"
-                echo -e "${YELLOW}Failed to parse port, using default port 8000${NC}"
+                port="9000"
+                echo -e "${YELLOW}Failed to parse port, using default port 9000${NC}"
             else
                 echo -e "${YELLOW}Parsed port: ${port}${NC}"
             fi

@@ -11,7 +11,7 @@ services:
       # Host and container ports can be controlled via environment variables.
       # If a config file is provided (see `run.sh start <config>`), the script will try to read the port value
       # and set these variables automatically.
-      - "${HOST_PORT:-8000}:${CONTAINER_PORT:-8000}"
+      - "${HOST_PORT:-9000}:${CONTAINER_PORT:-9000}"
     environment:
       # Application environment
       - PYTHONPATH=/app/src

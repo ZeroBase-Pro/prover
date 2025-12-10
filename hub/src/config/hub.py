@@ -9,7 +9,7 @@ class Config:
     class Server:
         class Sanic:
             host = "0.0.0.0"
-            port = 8000
+            port = 9000
             forwarded_secret = "ABCDEFG"
             real_ip_header = "cf-connecting-ip"
             proxies_count = 2
