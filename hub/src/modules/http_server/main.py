@@ -2,9 +2,10 @@ import aiohttp
 import asyncio
 import logging
 from typing import Optional
+from utils.constant import API_LOGGER  
 
 class HttpServer:
-    def __init__(self, address: str, session: Optional[aiohttp.ClientSession] = None, timeout: float = 3.0) -> None:
+    def __init__(self, address: str, session: Optional[aiohttp.ClientSession] = None, timeout: float = 6.0, logger: Optional[logging.Logger] = None) -> None:  # * 默认超时从 3s 提升到 6s（方案A）
         """
         Initialize the HttpServer with the target address and optional timeout.
 
@@ -12,7 +13,7 @@ class HttpServer:
         :param timeout: The maximum time (in seconds) to wait for a response.
         """
         self.address = address
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger or logging.getLogger(API_LOGGER)  
         self._session = session
         self._timeout = timeout
 
@@ -36,9 +37,9 @@ class HttpServer:
         url = f"{self.address}/ping"
 
         try:
-            self.logger.debug(f"Attempting to ping {url}")
+            self.logger.info(f"Attempting to ping {url}")
             async with self.session.get(url, ssl=False) as response:
-                self.logger.debug(f"Received status {response.status} from {url}")
+                self.logger.info(f"Received status {response.status} from {url}")
                 return response.status == 200
         except asyncio.TimeoutError:
             self.logger.warning(f"Ping to {url} timed out")
@@ -61,17 +62,22 @@ class HttpServer:
         payload = {"proof_hash": proof_hash, "signature": signature}
 
         try:
-            self.logger.debug(f"Attempting to push task to {url} with payload: {payload}")
+            self.logger.info(f"Attempting to push task to {url} with payload: {payload}")
             async with self.session.post(url, json=payload, ssl=False) as response:
-                self.logger.debug(f"Received status {response.status} from {url}")
+                self.logger.info(f"Received status {response.status} from {url}")
                 return response.status == 200
         except asyncio.TimeoutError:
-            self.logger.warning(f"Push task to {url} timed out")
-            return False
+            self.logger.warning(f"Push task to {url} timed out, retrying once")  
+            try:
+                async with self.session.post(url, json=payload, ssl=False) as response: 
+                    self.logger.info(f"[Retry] Received status {response.status} from {url}") 
+                    return response.status == 200  
+            except asyncio.TimeoutError:
+                self.logger.warning(f"[Retry] Push task to {url} timed out again")  
+                return False 
         except aiohttp.ClientError as e:
             self.logger.error(f"Client error occurred while pushing task to {url}: {e}")
             return False
         except Exception as e:
             self.logger.exception(f"An unexpected error occurred while pushing task to {url}: {e}")
             return False
-
