@@ -23,6 +23,13 @@ zerobase-prover/
 - **Run the hub** if you operate a registry/dispatcher that nodes report to and clients query for available proving endpoints. See `hub/README.md` for configuration and `run.sh start` usage.
 - **Run the prover stack** if you need the proving services on a machine. See `prover/README.md` for config, CPU/GPU modes, and `run.sh` commands.
 
+## Before you begin
+
+This repository is intended to run on a server-grade machine with a Trusted Execution Environment (TEE) and a public IP (or properly configured NAT/port forwarding). Running the services on consumer/home devices or laptops is not recommended.
+
+- **Why:** The proving services expect external connectivity and may require public IP mapping for gRPC/HTTP endpoints and inter-service communication.
+- **What to use:** A TEE-capable server or cloud instance with TEE support and a static/public IP address.
+
 ## Common Prerequisites
 
 - Docker and Docker Compose installed; ability to run `sudo docker ...`.
