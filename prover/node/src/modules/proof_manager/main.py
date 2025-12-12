@@ -8,6 +8,7 @@ from utils.constant import STATUS_CODE_TASK_INVALID, STATUS_CODE_TASK_NOT_FOUND,
 class ProofManager:
     _instance = None
     _locker = threading.Lock()
+    _SAVE_INTERVAL = 5  
 
     def __new__(cls, *args, **kwargs):
         with cls._locker:
@@ -21,8 +22,28 @@ class ProofManager:
             return
 
         self.cache_path = cache_path
-        self.cache = self._load_cache()
+        self.cache = {}
+        self._load_cache()
+        self._dirty = False  
+        self._stop_event = threading.Event()  
+        self._write_lock = threading.Lock()  
+        self._start_background_flush()  
         self._initialized = True
+
+    def _drop_expired(self):  
+        current_time = time.time()  
+        logging.info("Cache loaded. Size BEFORE drop_expired: %d %d", len(self.cache), current_time)
+        keys_to_delete = [key for key, (_, expiry) in self.cache.items()
+                          if expiry is not None and expiry <= current_time]  
+        all_keys = [(key, expiry) for key, (_, expiry) in self.cache.items()]
+
+        logging.info("All keys in cache: %s", all_keys)
+
+        for key in keys_to_delete:  
+            del self.cache[key]  
+        if keys_to_delete:  
+            logging.info("Expired keys removed during load/save: %s", keys_to_delete)  
+        logging.info("Cache size AFTER drop_expired: %d", len(self.cache))
 
     def _load_cache(self):
         """Load cache from file"""
@@ -30,7 +51,8 @@ class ProofManager:
             try:
                 with open(self.cache_path, 'rb') as f:
                     logging.info("Cache loaded successfully from %s", self.cache_path)
-                    return pickle.load(f)
+                    self.cache = pickle.load(f)
+                    self._drop_expired()
             except (IOError, pickle.PickleError) as e:
                 logging.error("Failed to load cache: %s", e)
         logging.warning("Cache file not found, starting with an empty cache.")
@@ -47,42 +69,62 @@ class ProofManager:
                 # If key is expired, delete it
                 logging.info("Cache expired for key: %s", key)
                 del self.cache[key]
-                self._save_cache()
+                self._dirty = True  
         else:
             logging.info("Cache miss for key: %s", key)
         return None
 
-    def set(self, key, value, ttl=None):
+    def set(self, key, value, ttl=60):
         """
-        Update cache and persist to file
+        Update cache and persist to file 
         :param key: Cache key
-        :param value: Cache value  
+        :param value: Cache value
         :param ttl: Time to live in seconds, None means no expiration
         """
         expiry = time.time() + ttl if ttl is not None else None
         self.cache[key] = (value, expiry)
-        logging.info("Cache updated for key: %s", key)
-        self._save_cache()
+        logging.info("Cache updated for key: self.cache:%s", self.cache[key])
+        logging.info("Cache updated for key: %s %d %d", key, value, expiry)
+        self._dirty = True  
 
-    def _save_cache(self):
-        """Save cache to file"""
+    def _save_cache(self):  
+
+        logging.info("_save_cache start %s , %d", self.cache_path, len(self.cache))  
         try:
-            with open(self.cache_path, 'wb') as f:
-                pickle.dump(self.cache, f)
-            logging.info("Cache saved successfully to %s", self.cache_path)
+            if not self._dirty:
+                return  
+            with self._write_lock:  
+                self._drop_expired()
+                with open(self.cache_path, 'wb') as f:
+                    logging.info("Saving cache to %s", self.cache)  
+                    pickle.dump(self.cache, f)
+            logging.info("Cache appended successfully to %s %d", self.cache_path, len(self.cache))  
+            self._dirty = False  
         except IOError as e:
-            logging.error("Failed to save cache: %s", e)
+            logging.error("Failed to save cache: %s %d", e, len(self.cache))  
 
+    def _start_background_flush(self):  
+        def _flush_loop():  
+            while not self._stop_event.is_set():  
+                time.sleep(self._SAVE_INTERVAL)  
+                try:  
+                    self._save_cache()  
+                except Exception as e:  
+                    logging.error("Background flush failed: %s", e)  
+        t = threading.Thread(target=_flush_loop, daemon=True)  
+        t.start()  
     def clean_expired(self):
         """Clean expired keys"""
         current_time = time.time()
-        keys_to_delete = [key for key, (_, expiry) in self.cache.items() if expiry is not None and expiry <= current_time]
+        keys_to_delete = [key for key, (_, expiry) in self.cache.items()
+                          if expiry is not None and expiry <= current_time]
         for key in keys_to_delete:
             del self.cache[key]
         if keys_to_delete:
             logging.info("Expired keys cleaned: %s", keys_to_delete)
-            self._save_cache()
-            
+            self._dirty = True  
+            self._save_cache()  
+
     def claim_task(self, proof_hash: str) -> bool:
         status = self.get(proof_hash)
         if status is None:
@@ -100,17 +142,14 @@ if __name__ == "__main__":
     manager = ProofManager(cache_path)
     start = time.perf_counter()
     print (start)
-    # Set cache value with TTL of 5 seconds
     key = 1
     manager.set(key, 1, ttl=5)
 
-    # Get cache value
     print("Cached value:", manager.get(key))
     test = manager.get(key)
     print (test == 2)
     
 
-    # Wait 6 seconds then try to get again
     time.sleep(6)
     end = time.perf_counter()
     print (end)
@@ -118,6 +157,4 @@ if __name__ == "__main__":
     print (end-start)
     print("Cached value after expiry:", manager.get(key))
 
-    # Clean expired keys
     manager.clean_expired()
-    
