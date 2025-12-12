@@ -38,4 +38,4 @@ RUN chmod -R 755 /app/src/crypto_keys \
 EXPOSE 9000
 
 # Default start command
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "9000", "--workers", "2"]
+CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${CONTAINER_PORT:-9000} --workers 2"]

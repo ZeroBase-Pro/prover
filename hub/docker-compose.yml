@@ -16,6 +16,7 @@ services:
       # Application environment
       - PYTHONPATH=/app/src
       - PYTHONUNBUFFERED=1
+      - CONTAINER_PORT=${CONTAINER_PORT:-9000}
     volumes:
       # Allow overriding container config by mounting a host file via HUB_CONFIG env var.
       # Falls back to the repository's ./src/config/hub.py by default (backwards compatible).
