@@ -3,9 +3,6 @@ version: '3.8'
 services:
   hub:
     image: zer0base/hub:0.0.1
-    build:
-      context: .
-      dockerfile: Dockerfile
     container_name: hub-container
     ports:
       # Host and container ports can be controlled via environment variables.

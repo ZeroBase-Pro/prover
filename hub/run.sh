@@ -14,7 +14,6 @@ NC='\033[0m' # No Color
 
 # Project configuration
 PROJECT_NAME="hub"
-SERVICE_NAME="hub"
 CONTAINER_NAME="hub-container"
 
 # Print help information
