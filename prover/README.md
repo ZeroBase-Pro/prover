@@ -49,6 +49,7 @@ This repository is intended to run on a server-grade machine with a Trusted Exec
 These items are required for the Node service and will cause scripts/containers to fail if missing. Complete them before you run `run.sh` or any `pull.sh`.
 
 - Populate `node/src/config/` with your environment-specific configuration. At minimum, copy or edit the provided `sample.py`, then rename it to `node.py` to make it the active config. Ensure that `node/src/config/__init__.py` exposes the active configuration.
+- In `node.py`, set the Hub URL and the node's advertised endpoints (`Hub.Info.grpc`/`Hub.Info.http`) to addresses reachable from the Hub; otherwise registration/heartbeat will fail.
 - Place the correct `public_key` file at `node/src/session_keys/public_key`. If this key is missing or incorrect the Node service will not be able to validate sessions.
 - Note: the Node container runs with `PYTHONPATH=/app/src` and the `node/pull.sh` will mount `node/src` into the container as read-only. Missing files or empty mounts commonly cause immediate container failures.
 
