@@ -15,7 +15,7 @@ NAME="${NAME:-node-container}"
 GRPC_PORT_IN=50050
 HTTP_PORT_IN=50051
 
-MODE="${MODE:-sample}"
+MODE="${MODE:-NODE}"
 GRPC_HOST="${GRPC_HOST:-0.0.0.0}"
 FASTAPI_HOST="${FASTAPI_HOST:-0.0.0.0}"
 
@@ -44,10 +44,43 @@ for d in crypto_keys session_keys config; do
     exit 1
   fi
 done
+
 # If you want to strictly validate presence of __init__.py:
 if [[ ! -f "${HOST_SRC_DIR}/config/__init__.py" ]]; then
   echo "ERROR: ${HOST_SRC_DIR}/config/__init__.py not found!" >&2
   exit 1
+fi
+
+# -------------------------------------------------------------------------
+# NEW: If HUB_API is not provided (arg3/env empty), read default from node.py
+# -------------------------------------------------------------------------
+if [[ -z "${HUB_API}" ]]; then
+  NODE_PY="${HOST_SRC_DIR}/config/node.py"
+
+  # 1) Prefer python import (robust, respects actual Python code structure)
+  if command -v python3 >/dev/null 2>&1; then
+    HUB_API="$(python3 - <<PY 2>/dev/null || true
+import sys
+sys.path.insert(0, "${HOST_SRC_DIR}")
+from config.node import Config
+print(getattr(getattr(getattr(Config, "Hub"), "API"), "url"))
+PY
+)"
+  fi
+
+  # 2) Fallback: parse node.py text if python import fails
+  if [[ -z "${HUB_API}" && -f "${NODE_PY}" ]]; then
+    HUB_API="$(grep -E '^[[:space:]]*url[[:space:]]*=' "${NODE_PY}" \
+      | head -n1 \
+      | sed -E 's/.*=[[:space:]]*["'"'"']?([^"'"'"'#]+).*/\1/' \
+      || true)"
+  fi
+
+  if [[ -n "${HUB_API}" ]]; then
+    echo "HUB_API not provided; using value from node.py: ${HUB_API}"
+  else
+    echo "WARNING: HUB_API not provided and could not be read from node.py; leaving HUB_API unset." >&2
+  fi
 fi
 
 HUB_ENVS=()
