@@ -25,6 +25,7 @@ from modules.proof_manager import ProofManager
 from modules.key_cache import KeyCache
 
 from typing import List, Optional
+from utils.response import successfully
 
 config = Config()
 logger = logging.getLogger(API_LOGGER)
@@ -253,4 +254,29 @@ async def hub_post_node(request: Request, body: serializers.PostNodeRequest):
     response = serializers.PostNodeSuccessfullyResponse().model_dump()
     return http_response(status=HttpStatus.OK, **response)
 
+@hub_blueprint.get("/node/status")
+async def hub_get_node_status(request: Request):
+    try:
+        node_list = NodeList()
+        nodes_out = []
+        for idx, (node_id, node) in enumerate(node_list.nodes.items()):
+            nodes_out.append(
+                {
+                    "index": idx,
+                    "id": node_id,
+                    "grpc_info": node.get("grpc_info"),
+                    "http_info": node.get("http_info"),
+                    "timestamp": node.get("timestamp"),
+                    "poh": node.get("poh"),
+                }
+            )
 
+        response = {
+            "code": successfully.code,
+            "msg": successfully.msg,
+            "results": {"count": len(nodes_out), "nodes": nodes_out},
+        }
+        return http_response(status=HttpStatus.OK, **response)
+    except Exception as e:
+        logger.exception(f"[API][GET /node/status] - Failed: {e}")
+        return http_response(status=HttpStatus.SERVER_ERROR, msg="Internal Server Error")
