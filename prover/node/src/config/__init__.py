@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 import threading
 from .node import Config as NodeConfig
 
+SampleConfig = NodeConfig
+
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(process)d] [%(levelname)s] - %(name)s "
