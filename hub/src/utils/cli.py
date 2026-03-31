@@ -8,10 +8,6 @@ from utils.constant import CLI_LOGGER, PUBLIC_KEY, PRIVATE_KEY
 
 
 def init_key(key_size, path, logger):
-    """Generate RSA keys and write them to path.
-
-    logger: a logging.Logger instance used for messages.
-    """
     if key_size < 1024 or key_size > 8096:
         logger.error("The range is [1024~8096]")
         return
@@ -32,7 +28,6 @@ def init_key(key_size, path, logger):
         logger.info(f"Private key is created in [{private_key_path}]")
 
 def main():
-    # Delay creating Config and logger to avoid side-effects at import time
     from config import Config
     config = Config()
     setup_logger(CLI_LOGGER, config.Env.logs_path, "M", logging.DEBUG)
@@ -41,7 +36,6 @@ def main():
     parser = argparse.ArgumentParser(description="RSA Key Generator CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # `init_keys` command
     parser_init_keys = subparsers.add_parser("init_keys", help="Initialize RSA keys")
     parser_init_keys.add_argument(
         "--key_size",

@@ -7,7 +7,7 @@ import ujson
 
 from . import serializers
 
-from config import Config, SampleConfig
+from config import Config, NodeConfig
 from utils.constant import TASK_TYPE_ZKLOGIN
 from utils.constant import OAUTH_PROVIDER_GOOGLE, OAUTH_PROVIDER_TELEGRAM, OAUTH_PROVIDER_X509_GOOGLE
 from utils.constant import PRIVATE_KEY
@@ -31,8 +31,6 @@ from utils.error_util import HTTPException
 
 from fastapi.middleware.cors import CORSMiddleware
 
-# Define your configuration dependency
-
 
 def get_prove_service() -> ProveServiceV2:
     oauth_provider = {}
@@ -51,7 +49,7 @@ def get_encryptor() -> RSAEncryption:
             session_key = file.read()
     except FileNotFoundError:
         logging.error("[API] - Public key file not found")
-        return
+        raise HTTPException(code=STATUS_CODE_PUBLIC_KEY_NOT_FOUND, msg="Public key file not found", status_code=500)
     encrytor = RSAEncryption(public_key=session_key)
     return encrytor
 
@@ -62,10 +60,10 @@ def get_proof_manager() -> ProofManager:
 
 def get_hub() -> Hub:
     config = Config()
-    hub = Hub(config.Hub.API, config.Env.session_keys_path, config)
+    hub = Hub(config.Hub.API.url, config.Env.session_keys_path, config)
     return hub
 
-def get_config() -> SampleConfig:
+def get_config() -> NodeConfig:
     config = Config()
     return config
 
@@ -75,25 +73,21 @@ router = APIRouter()
 
 @router.get("/ping", response_model=serializers.PingResponse)
 async def ping():
-    """
-    Simple ping endpoint for basic connectivity check
-    """
     return serializers.PingResponse(code=0, msg="Pong")
 
 prove_service_dependency = Annotated[ProveServiceV2, Depends(get_prove_service)]
 encryptor_dependency = Annotated[RSAEncryption, Depends(get_encryptor)]
 proof_manager_dependency = Annotated[ProofManager, Depends(get_proof_manager)]
 hub_dependency = Annotated[Hub, Depends(get_hub)]
-config_dependency = Annotated[SampleConfig, Depends(get_config)]
+config_dependency = Annotated[NodeConfig, Depends(get_config)]
 
 @router.post("/api/v2/prove", response_model=serializers.ProveV2Response)
 async def prove(request: serializers.ProveV2Request, prove_service_cls: prove_service_dependency, proof_manager_cls: proof_manager_dependency, hub_cls: hub_dependency):
-    # Extract base request parameters
-    prover = request.prover                   # Identifier for the prover
-    circuit_template_id = request.circuit_template_id  # Circuit template identifier
+    prover = request.prover
+    circuit_template_id = request.circuit_template_id
     payload = request.payload
-    is_encrypted = request.is_encrypted             # Indicates if input data is encrypted
-    auth_token = request.auth_token                 # Authentication token
+    is_encrypted = request.is_encrypted
+    auth_token = request.auth_token
     task_type = request.task_type or TASK_TYPE_ZKLOGIN
     length = request.length
     oauth_provider = request.oauth_provider or OAUTH_PROVIDER_GOOGLE

@@ -12,7 +12,7 @@ from modules.prover.gnark import PrivateProver
 from modules.encryptor import RSAEncryption
 from modules.oauth_provider import OAuthProvider, OAuthProviderResolver
 
-from config import SampleConfig
+from config import NodeConfig
 from utils.constant import PROVER_CIRCOM, PROVER_PRIVATE
 from utils.constant import TASK_TYPE_ZKLOGIN, TASK_TYPE_TIGA
 from utils.constant import PUBLIC_KEY, PRIVATE_KEY
@@ -47,7 +47,7 @@ class ProveServiceV2:
                 cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, project_manager: ProjectManager, oauth_provider: Dict[str, OAuthProvider], oauth_provider_resolver: OAuthProviderResolver, config: SampleConfig):
+    def __init__(self, project_manager: ProjectManager, oauth_provider: Dict[str, OAuthProvider], oauth_provider_resolver: OAuthProviderResolver, config: NodeConfig):
         if self._initialized:
             return
         
@@ -148,6 +148,7 @@ class ProveServiceV2:
                 code=ok,
                 msg=msg
             )
+        input_data = msg
             
         ok, msg = await self._validate_task_type_and_input(method, circuit_template_id, input_data, oauth_provider)
         if ok != True:
@@ -158,10 +159,18 @@ class ProveServiceV2:
             
         try:
             if prover_id == PROVER_CIRCOM:
-                prover_instance = CircomProver(self.config.Prover.Circom.address)
+                prover_instance = CircomProver(
+                    self.config.Prover.Circom.address,
+                    verify_tls=self.config.Env.verify_prover_tls,
+                    tls_certfile=self.config.Env.tls_certfile,
+                )
                 prover_result = await prover_instance.prove_v2(input_data, circuit_template_id, length)
             elif prover_id == PROVER_PRIVATE:
-                private_prover = PrivateProver(self.config.Prover.Private.address)
+                private_prover = PrivateProver(
+                    self.config.Prover.Private.address,
+                    verify_tls=self.config.Env.verify_prover_tls,
+                    tls_certfile=self.config.Env.tls_certfile,
+                )
                 rpc_map = {
                     "10005": private_prover.prove_tiga_offchain,
                     "10006": private_prover.prove_binance_offchain,

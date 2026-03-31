@@ -9,6 +9,7 @@ from modules.prover import Prover
 from modules.prover.gnark import gnark_prove_pb2 as prove_pb2
 from modules.prover.gnark import gnark_prove_pb2_grpc as prove_pb2_grpc
 from utils.constant import STATUS_CODE_PROVER_NOT_RESPONSE
+from utils.tls import grpc_channel_credentials, grpc_channel_options
 
 # =========================
 # Result model
@@ -38,6 +39,8 @@ class ConnectionPool:
         address: str,
         max_connections: int = 100,
         initial_size: int = 0,
+        verify_tls: bool = False,
+        tls_certfile: str = "",
         *,
         max_send_message_length: int = 64 * 1024 * 1024,
         max_receive_message_length: int = 64 * 1024 * 1024,
@@ -51,6 +54,8 @@ class ConnectionPool:
         self._pool: asyncio.Queue[Tuple[grpc.aio.Channel, prove_pb2_grpc.ProveServiceStub]] = asyncio.Queue()
         self._created = 0
         self._closed = False
+        self.verify_tls = verify_tls
+        self.tls_certfile = tls_certfile
         self._options = [
             ("grpc.max_send_message_length", max_send_message_length),
             ("grpc.max_receive_message_length", max_receive_message_length),
@@ -67,7 +72,9 @@ class ConnectionPool:
             self._pool.put_nowait(self._new_pair())
 
     def _new_pair(self) -> Tuple[grpc.aio.Channel, prove_pb2_grpc.ProveServiceStub]:
-        ch = grpc.aio.insecure_channel(self.address, options=self._options)
+        credentials = grpc_channel_credentials(self.tls_certfile)
+        options = self._options + grpc_channel_options(self.verify_tls, self.tls_certfile)
+        ch = grpc.aio.secure_channel(self.address, credentials, options=options)
         stub = prove_pb2_grpc.ProveServiceStub(ch)
         self._created += 1
         return ch, stub
@@ -126,10 +133,16 @@ class PrivateProver(Prover):
             cls._instances[key] = inst
         return inst
 
+    def __init__(self, address: str, max_connections: int = 100, **kwargs):
+        # Initialization is handled in __new__/_init for singleton reuse.
+        pass
+
     def _init(
         self,
         address: str,
         max_connections: int,
+        verify_tls: bool = False,
+        tls_certfile: str = "",
         *,
         pool_initial_size: int = 0,
         rpc_timeout_sec: float = 30.0,
@@ -137,7 +150,13 @@ class PrivateProver(Prover):
         base_backoff_ms: int = 150,
     ) -> None:
         self.address = address
-        self.connection_pool = ConnectionPool(address, max_connections, initial_size=pool_initial_size)
+        self.connection_pool = ConnectionPool(
+            address,
+            max_connections,
+            initial_size=pool_initial_size,
+            verify_tls=verify_tls,
+            tls_certfile=tls_certfile,
+        )
         self.rpc_timeout_sec = rpc_timeout_sec
         self.max_retries = max_retries
         self.base_backoff_ms = base_backoff_ms

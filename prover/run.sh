@@ -1,22 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# =============================================================================
-# ZeroBase Docker Prover -Orchestration Script
-# =============================================================================
-# Two usages are supported:
-# 1) Recommended flags form:
-#    sudo ./run.sh --mode gpu \
-#                  --node-grpc 50050 --node-http 50051 \
-#                  --circom-port 60051 --gnark-port 60050 \
-#                  --hub http://127.0.0.1:9000
-#    (If you need to specify separately: --circom-mode cpu --gnark-mode gpu)
-#
-# 2) Compatible with the old "port by location":
-#    sudo ./run.sh [cpu|gpu] [node_grpc] [node_http] [circom_port] [gnark_port] [hub_api]
-#    example: sudo ./run.sh gpu 50050 50051 60051 60050 http://127.0.0.1:9000
-# =============================================================================
-
 print_usage() {
   cat <<EOF
 Usage:
@@ -26,8 +10,8 @@ Usage:
                    [--hub URL]
 
 Examples:
-  $(basename "$0") --mode gpu --node-grpc 50050 --node-http 50051 --circom-port 60051 --gnark-port 60050 --hub http://127.0.0.1:9000
-  $(basename "$0") gpu 50050 50051 60051 60050 http://127.0.0.1:9000
+  $(basename "$0") --mode gpu --node-grpc 50050 --node-http 50051 --circom-port 60051 --gnark-port 60050 --hub https://127.0.0.1:9000
+  $(basename "$0") gpu 50050 50051 60051 60050 https://127.0.0.1:9000
 EOF
 }
 
@@ -60,9 +44,9 @@ while [[ $# -gt 0 ]]; do
     *)
       if is_number "$1"; then
         NODE_GRPC_PORT="$1"; shift
-        if [[ $# -gt 0 && "$(is_number "${1:-}" && echo yes)" == "yes" ]]; then NODE_HTTP_PORT="$1"; shift; fi
-        if [[ $# -gt 0 && "$(is_number "${1:-}" && echo yes)" == "yes" ]]; then CIRCOM_PORT="$1"; shift; fi
-        if [[ $# -gt 0 && "$(is_number "${1:-}" && echo yes)" == "yes" ]]; then GNARK_PORT="$1"; shift; fi
+        if [[ $# -gt 0 ]] && is_number "${1:-}"; then NODE_HTTP_PORT="$1"; shift; fi
+        if [[ $# -gt 0 ]] && is_number "${1:-}"; then CIRCOM_PORT="$1"; shift; fi
+        if [[ $# -gt 0 ]] && is_number "${1:-}"; then GNARK_PORT="$1"; shift; fi
         if [[ $# -gt 0 ]]; then HUB_API="$1"; shift; fi
       else
         echo "Unknown argument: $1"; print_usage; exit 1
@@ -94,7 +78,7 @@ bash "./circom-prover/pull.sh" "${CIRCOM_MODE}" "${CIRCOM_PORT}"
 echo -e "\n${YELLOW}Starting Gnark Prover...${NC}"
 bash "./gnark-prover/pull.sh" "${GNARK_MODE}" "${GNARK_PORT}"
 
-echo -e "\n${GREEN}All services started! 🚀${NC}"
+echo -e "\n${GREEN}All services started${NC}"
 echo -e "Node:   localhost:${NODE_GRPC_PORT} (gRPC), localhost:${NODE_HTTP_PORT} (HTTP)"
 echo -e "Circom: localhost:${CIRCOM_PORT}"
 echo -e "Gnark:  localhost:${GNARK_PORT}"

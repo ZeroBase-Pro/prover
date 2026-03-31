@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // CircuitData holds the data for a circuit template
@@ -1087,6 +1088,18 @@ func (s *server) Ping(ctx context.Context, in *pb.Empty) (*pb.PingResponse, erro
 	}, nil
 }
 
+func firstExistingPath(paths ...string) string {
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
+}
+
 func main() {
 	port := flag.Int("p", DefaultPort, "The port on which the server will listen")
 	templateFolderPath := flag.String("temp", "./template", "Circuits template folder path")
@@ -1108,7 +1121,17 @@ func main() {
 		log.Fatalf("Failed to listen on port %v: %v", *port, err)
 	}
 
-	s := grpc.NewServer()
+	certFile := firstExistingPath(os.Getenv("SSL_CERTFILE"), "/app/certs/tls.crt", "./certs/tls.crt")
+	keyFile := firstExistingPath(os.Getenv("SSL_KEYFILE"), "/app/certs/tls.key", "./certs/tls.key")
+	if certFile == "" || keyFile == "" {
+		log.Fatal("TLS is required but tls.crt or tls.key is missing")
+	}
+	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if err != nil {
+		log.Fatalf("Failed to load TLS credentials: %v", err)
+	}
+
+	s := grpc.NewServer(grpc.Creds(creds))
 	pb.RegisterProveServiceServer(s, &server{
 		circuits: circuits,
 	})

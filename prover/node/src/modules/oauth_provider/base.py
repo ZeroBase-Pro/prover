@@ -57,6 +57,8 @@ class OAuthProviderResolver:
         Return None if not found.
         """
         provider_info = self.template_provider_map.get(template_id)
+        if isinstance(provider_info, str):
+            return provider_info
         if provider_info and isinstance(provider_info, dict):
             return provider_info.get("provider")
         return None

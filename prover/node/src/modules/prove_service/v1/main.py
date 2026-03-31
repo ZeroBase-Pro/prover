@@ -11,7 +11,7 @@ from modules.prover.private import PrivateProver
 from modules.encryptor import RSAEncryption
 from modules.oauth_provider import OAuthProvider, OAuthProviderResolver
 
-from config import SampleConfig
+from config import NodeConfig
 from utils.constant import PROVER_CIRCOM, PROVER_PRIVATE
 from utils.constant import TASK_TYPE_ZKLOGIN, TASK_TYPE_TIGA
 from utils.constant import PUBLIC_KEY, PRIVATE_KEY
@@ -44,7 +44,7 @@ class ProveServiceV1:
                 cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, project_manager: ProjectManager, oauth_provider: Dict[str, OAuthProvider], oauth_provider_resolver: OAuthProviderResolver, config: SampleConfig):
+    def __init__(self, project_manager: ProjectManager, oauth_provider: Dict[str, OAuthProvider], oauth_provider_resolver: OAuthProviderResolver, config: NodeConfig):
         if self._initialized:
             return
         
@@ -149,6 +149,7 @@ class ProveServiceV1:
                 code=ok,
                 msg=msg
             )
+        input_data = msg
     
         ok, msg = await self._validate_task_type_and_input(method, circuit_template_id, input_data, oauth_provider)
         if ok != True:
@@ -159,7 +160,11 @@ class ProveServiceV1:
 
         try:
             if prover_id == PROVER_CIRCOM:
-                prover_instance = CircomProver(self.config.Prover.Circom.v1_address)
+                prover_instance = CircomProver(
+                    self.config.Prover.Circom.address,
+                    verify_tls=self.config.Env.verify_prover_tls,
+                    tls_certfile=self.config.Env.tls_certfile,
+                )
                 prover_result: CircomResultV1 = await prover_instance.prove(input_data, circuit_template_id)
             else:
                 logging.info(f"[v1] - [prove] took {time.perf_counter() - start_time:.4f} seconds")
@@ -221,6 +226,7 @@ class ProveServiceV1:
                 code=ok,
                 msg=msg
             )
+        input_data = msg
     
         ok, msg = await self._validate_task_type_and_input(method, circuit_template_id, input_data, oauth_provider)
         if ok != True:
@@ -231,7 +237,11 @@ class ProveServiceV1:
             
         try:
             if prover_id == PROVER_CIRCOM:
-                prover_instance = CircomProver(self.config.Prover.Circom.v1_address)
+                prover_instance = CircomProver(
+                    self.config.Prover.Circom.address,
+                    verify_tls=self.config.Env.verify_prover_tls,
+                    tls_certfile=self.config.Env.tls_certfile,
+                )
                 prover_result = await prover_instance.prove_nosha256(input_data, circuit_template_id, length)
             else:
                 return ProofResult(
@@ -292,6 +302,7 @@ class ProveServiceV1:
                 code=ok,
                 msg=msg
             )
+        input_data = msg
     
         ok, msg = await self._validate_task_type_and_input(method, circuit_template_id, input_data, oauth_provider)
         if ok != True:
@@ -302,7 +313,11 @@ class ProveServiceV1:
             
         try:
             if prover_id == PROVER_CIRCOM:
-                prover_instance = CircomProver(self.config.Prover.Circom.v1_address)
+                prover_instance = CircomProver(
+                    self.config.Prover.Circom.address,
+                    verify_tls=self.config.Env.verify_prover_tls,
+                    tls_certfile=self.config.Env.tls_certfile,
+                )
                 prover_result = await prover_instance.prove_nosha256_with_witness(input_data, circuit_template_id, length)
             else:
                 return ProofResult(
@@ -362,6 +377,7 @@ class ProveServiceV1:
                 code=ok,
                 msg=msg
             )
+        input_data = msg
     
         ok, msg = await self._validate_task_type_and_input(method, circuit_template_id, input_data, oauth_provider)
         if ok != True:
@@ -372,7 +388,11 @@ class ProveServiceV1:
             
         try:
             if prover_id == PROVER_CIRCOM:
-                prover_instance = CircomProver(self.config.Prover.Circom.v1_address)
+                prover_instance = CircomProver(
+                    self.config.Prover.Circom.address,
+                    verify_tls=self.config.Env.verify_prover_tls,
+                    tls_certfile=self.config.Env.tls_certfile,
+                )
                 prover_result = await prover_instance.prove_nosha256_offchain(input_data, circuit_template_id, length)
             else:
                 return ProofResult(

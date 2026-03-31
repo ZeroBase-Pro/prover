@@ -170,7 +170,7 @@ class ProveService(prove_service_pb2_grpc.ProveServiceServicer):
         if proof_result.project_name:
             await self.hub.send_result(proof_result.project_name, proof_hash, proof_result.duration, proof_result.verifiers)
 
-        return prove_service_pb2.ProveOffchainResponse(
+        return prove_service_pb2.ProveNosha256OffchainResponse(
             base_response=prove_service_pb2.StatusResponse(
                 code=proof_result.code,
                 msg=proof_result.msg

@@ -7,7 +7,7 @@ import ujson
 
 from . import serializers
 
-from config import Config, SampleConfig
+from config import Config, NodeConfig
 from utils.constant import TASK_TYPE_ZKLOGIN
 from utils.constant import OAUTH_PROVIDER_GOOGLE, OAUTH_PROVIDER_TELEGRAM, OAUTH_PROVIDER_X509_GOOGLE
 from utils.constant import PRIVATE_KEY
@@ -22,7 +22,6 @@ from modules.prove_service.v1 import ProveServiceV1, ProofResult
 
 from modules.oauth_provider import OAuthProviderResolver
 from modules.oauth_provider import google
-from modules.oauth_provider import telegram
 from modules.oauth_provider import x509_google
 
 
@@ -30,14 +29,11 @@ from fastapi import FastAPI, HTTPException, Depends, APIRouter
 
 from fastapi.middleware.cors import CORSMiddleware
 
-# Define your configuration dependency
-
 
 def get_prove_service() -> ProveServiceV1:
     oauth_provider = {}
     config = Config()
     oauth_provider[OAUTH_PROVIDER_GOOGLE] = google.Provider(config.OauthProvider.Google.api, config.OauthProvider.Google.circom_bigint_n, config.OauthProvider.Google.circom_bigint_k)
-    # oauth_provider[OAUTH_PROVIDER_TELEGRAM] = telegram.Provider(config.OauthProvider.Telegram.api, config.OauthProvider.Telegram.circom_bigint_n, config.OauthProvider.Telegram.circom_bigint_k)
     oauth_provider[OAUTH_PROVIDER_X509_GOOGLE] = x509_google.Provider(config.OauthProvider.X509Google.api, config.OauthProvider.X509Google.circom_bigint_n, config.OauthProvider.X509Google.circom_bigint_k)
     oauth_provider_resolver = OAuthProviderResolver(config.Env.oauth_provider_resolver_path)
     project_manager = ProjectManager(config.Env.project_path)
@@ -50,7 +46,7 @@ def get_encryptor() -> RSAEncryption:
             session_key = file.read()
     except FileNotFoundError:
         logging.error("[API] - Public key file not found")
-        return
+        raise HTTPException(status_code=500, detail="public key file not found")
     encrytor = RSAEncryption(public_key=session_key)
     return encrytor
 
@@ -61,28 +57,29 @@ def get_proof_manager() -> ProofManager:
 
 def get_hub() -> Hub:
     config = Config()
-    hub = Hub(config.Hub.API, config.Env.session_keys_path, config)
+    hub = Hub(config.Hub.API.url, config.Env.session_keys_path, config)
     return hub
 
-def get_config() -> SampleConfig:
+def get_config() -> NodeConfig:
     config = Config()
     return config
 
 
 router = APIRouter()
 
+@router.get("/health", response_model=serializers.StatusResponse)
+async def health():
+    return serializers.StatusResponse(code=0, msg="OK")
+
 @router.get("/ping", response_model=serializers.PingResponse)
 async def ping():
-    """
-    Simple ping endpoint for basic connectivity check
-    """
     return serializers.PingResponse(code=0, msg="Pong")
 
 prove_service_dependency = Annotated[ProveServiceV1, Depends(get_prove_service)]
 encryptor_dependency = Annotated[RSAEncryption, Depends(get_encryptor)]
 proof_manager_dependency = Annotated[ProofManager, Depends(get_proof_manager)]
 hub_dependency = Annotated[Hub, Depends(get_hub)]
-config_dependency = Annotated[SampleConfig, Depends(get_config)]
+config_dependency = Annotated[NodeConfig, Depends(get_config)]
 
 @router.post("/prove", response_model=serializers.ProveResponse)
 async def prove(request: serializers.ProveRequest, prove_service_cls: prove_service_dependency, proof_manager_cls: proof_manager_dependency, hub_cls: hub_dependency):
@@ -113,58 +110,16 @@ async def prove(request: serializers.ProveRequest, prove_service_cls: prove_serv
 
 @router.post("/prove_with_witness", response_model=serializers.ProveWithWitnessResponse)
 async def prove_with_witness(request: serializers.ProveWithWitnessRequest, prove_service_cls: prove_service_dependency, proof_manager_cls: proof_manager_dependency, hub_cls: hub_dependency):
-    prover_id = request.prover_id
-    circuit_template_id = request.circuit_template_id
-    input_data = request.input_data
-    is_encrypted = request.is_encrypted
-
-    method = request.method or TASK_TYPE_ZKLOGIN
-    oauth_provider = request.oauth_provider or OAUTH_PROVIDER_GOOGLE
-
-    proof_hash = request.proof_hash
-
-    ok, msg = proof_manager_cls.claim_task(proof_hash)
-    if ok != True:
-        raise HTTPException(status_code=400, detail=msg)
-            
-    proof_result: ProofResult = await prove_service_cls.prove_nosha256_with_witness(method, prover_id, circuit_template_id, input_data, is_encrypted, "", oauth_provider)
-        
-    if proof_result.project_name:
-        await hub_cls.send_result(proof_result.project_name, proof_hash, proof_result.duration, proof_result.verifiers)
-
-    return serializers.ProveWithWitnessResponse(
-        code=proof_result.code,
-        msg=proof_result.msg,
-        proof_data=proof_result.proof,
-        witness_data=proof_result.witness
+    raise HTTPException(
+        status_code=501,
+        detail="prove_with_witness is not supported in the current v1 service implementation"
     )
 
-@router.post("/prove_offchain", response_model=serializers.ProveWithWitnessResponse)
+@router.post("/prove_offchain", response_model=serializers.ProveOffchainResponse)
 async def prove_offchain(request: serializers.ProveWithWitnessRequest, prove_service_cls: prove_service_dependency, proof_manager_cls: proof_manager_dependency, hub_cls: hub_dependency):
-    prover_id = request.prover_id
-    circuit_template_id = request.circuit_template_id
-    input_data = request.input_data
-    is_encrypted = request.is_encrypted
-
-    method = request.method or TASK_TYPE_ZKLOGIN
-    oauth_provider = request.oauth_provider or OAUTH_PROVIDER_GOOGLE
-
-    proof_hash = request.proof_hash
-
-    ok, msg = proof_manager_cls.claim_task(proof_hash)
-    if ok != True:
-        raise HTTPException(status_code=400, detail=msg)
-            
-    proof_result: ProofResult = await prove_service_cls.prove_offchain(method, prover_id, circuit_template_id, input_data, is_encrypted, "", oauth_provider)
-        
-    if proof_result.project_name:
-        await hub_cls.send_result(proof_result.project_name, proof_hash, proof_result.duration, proof_result.verifiers)
-
-    return serializers.ProveOffchainResponse(
-        code=proof_result.code,
-        msg=proof_result.msg,
-        proof_data=proof_result.proof,
-        witness_data=proof_result.witness
+    raise HTTPException(
+        status_code=501,
+        detail="prove_offchain is not supported in the current v1 service implementation"
     )
 
 @router.post("/prove_nosha256", response_model=serializers.ProveNosha256Response)
@@ -217,7 +172,7 @@ async def prove_nosha256_with_witness(request: serializers.ProveNosha256WithWitn
     if proof_result.project_name:
         await hub_cls.send_result(proof_result.project_name, proof_hash, proof_result.duration, proof_result.verifiers)
 
-    return serializers.ProveNosha256Response(
+    return serializers.ProveNosha256WithWitnessResponse(
         code=proof_result.code,
         msg=proof_result.msg,
         proof_data=proof_result.proof,

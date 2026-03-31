@@ -12,6 +12,7 @@ import threading
 from utils.constant import SCHEDULER_LOGGER
 import time
 
+# Type aliases for better readability
 TaskFunction = Callable[..., Awaitable[Any]]
 Decorator = Callable[[TaskFunction], TaskFunction]
 

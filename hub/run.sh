@@ -1,22 +1,16 @@
 #!/bin/bash
 
-# Docker Hub container management script
-# Usage: ./run.sh [action]
+set -e
 
-set -e  # Exit on error
-
-# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Project configuration
 PROJECT_NAME="hub"
 CONTAINER_NAME="hub-container"
 
-# Print help information
 print_help() {
     echo -e "${BLUE}Docker Hub Container Management Script${NC}"
     echo ""
@@ -38,7 +32,6 @@ print_help() {
     echo ""
 }
 
-# Check if Docker is running
 check_docker() {
     if ! docker info > /dev/null 2>&1; then
         echo -e "${RED}Error: Docker service is not running, please start Docker first${NC}"
@@ -46,26 +39,36 @@ check_docker() {
     fi
 }
 
-# Build image
 build_container() {
     echo -e "${BLUE}Building Docker image...${NC}"
     docker compose build
     echo -e "${GREEN}Image build completed!${NC}"
 }
 
-# Start container
-# Optional parameter: start [config_path]
-# - config_path: Host configuration file path (e.g., ./configs/local_hub.py)
-#   If provided, it will be mounted to /app/src/config/hub.py in the container
 start_container() {
     local config_path=${2:-}
     local port="9000"
+    local scheme="http"
     echo -e "${BLUE}Starting container...${NC}"
+
+    if [ -z "${SSL_CERTFILE:-}" ] && [ -z "${SSL_KEYFILE:-}" ] && [ -f "./certs/tls.crt" ] && [ -f "./certs/tls.key" ]; then
+        export SSL_CERTFILE="/app/certs/tls.crt"
+        export SSL_KEYFILE="/app/certs/tls.key"
+        scheme="https"
+        echo -e "${YELLOW}TLS certificates detected in ./certs${NC}"
+    elif [ -n "${SSL_CERTFILE:-}" ] && [ -n "${SSL_KEYFILE:-}" ]; then
+        scheme="https"
+    fi
+
+    export REQUIRE_TLS="${REQUIRE_TLS:-true}"
+    if [ "${REQUIRE_TLS}" != "false" ] && [ "${REQUIRE_TLS}" != "0" ] && [ "${scheme}" != "https" ]; then
+        echo -e "${RED}TLS is required but no certificate pair is available${NC}"
+        exit 1
+    fi
 
     if [ -n "$config_path" ]; then
         if [ -f "$config_path" ]; then
             echo -e "${YELLOW}Using config file: ${config_path}${NC}"
-            # Extract the first valid port
             port=$(sed -nE 's/.*port[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' "$config_path" | head -n1)
             if [ -z "$port" ]; then
                 port="9000"
@@ -73,7 +76,6 @@ start_container() {
             else
                 echo -e "${YELLOW}Parsed port: ${port}${NC}"
             fi
-            # Export variables to environment to ensure docker compose can read them
             export CONTAINER_PORT="$port"
             export HOST_PORT="$port"
             export HUB_CONFIG="$config_path"
@@ -88,57 +90,49 @@ start_container() {
 
     echo -e "${GREEN}Container started successfully (if no errors)!${NC}"
     echo -e "${YELLOW}Container name: ${CONTAINER_NAME}${NC}"
-    echo -e "${YELLOW}Service running at: http://localhost:${port}${NC}"
+    echo -e "${YELLOW}Service running at: ${scheme}://localhost:${port}${NC}"
 }
 
-# Restart container
 restart_container() {
     echo -e "${BLUE}Restarting container...${NC}"
     docker compose restart
     echo -e "${GREEN}Container restarted successfully!${NC}"
 }
 
-# View logs
 view_logs() {
     echo -e "${BLUE}Viewing container logs...${NC}"
     docker compose logs --tail=100
 }
 
-# Follow logs
 view_logs_follow() {
     echo -e "${BLUE}Following container logs (press Ctrl+C to exit)...${NC}"
     docker compose logs -f
 }
 
-# Stop container
 stop_container() {
     echo -e "${BLUE}Stopping container...${NC}"
     docker compose stop
     echo -e "${GREEN}Container stopped${NC}"
 }
 
-# Remove container
 remove_container() {
     echo -e "${YELLOW}Removing container...${NC}"
     docker compose down
     echo -e "${GREEN}Container removed${NC}"
 }
 
-# Remove image
 remove_image() {
     echo -e "${YELLOW}Removing image...${NC}"
     docker rmi $(docker images "${PROJECT_NAME}*" -q) 2>/dev/null || echo "No image found"
     echo -e "${GREEN}Image removal completed${NC}"
 }
 
-# Clean all
 clean_all() {
     echo -e "${RED}Cleaning all Docker resources...${NC}"
     docker compose down -v --rmi all
     echo -e "${GREEN}Cleanup completed${NC}"
 }
 
-# Show container status
 show_status() {
     echo -e "${BLUE}Container status:${NC}"
     docker compose ps
@@ -147,13 +141,11 @@ show_status() {
     docker ps -a --filter "name=${CONTAINER_NAME}"
 }
 
-# Enter container shell
 enter_shell() {
     echo -e "${BLUE}Entering container shell...${NC}"
     docker exec -it ${CONTAINER_NAME} /bin/bash
 }
 
-# Main function
 main() {
     local action=${1:-help}
     
@@ -164,7 +156,6 @@ main() {
             build_container
             ;;
         start)
-            # Allow passing second parameter as config file path: ./run.sh start ./configs/local_hub.py
             start_container "$@"
             ;;
         restart)
@@ -205,6 +196,4 @@ main() {
     esac
 }
 
-# Execute main function
 main "$@"
-

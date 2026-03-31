@@ -3,29 +3,32 @@ version: '3.8'
 services:
   hub:
     image: zer0base/hub:0.0.1
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: hub-container
     ports:
-      # Host and container ports can be controlled via environment variables.
-      # If a config file is provided (see `run.sh start <config>`), the script will try to read the port value
-      # and set these variables automatically.
       - "${HOST_PORT:-9000}:${CONTAINER_PORT:-9000}"
     environment:
-      # Application environment
       - PYTHONPATH=/app/src
       - PYTHONUNBUFFERED=1
       - CONTAINER_PORT=${CONTAINER_PORT:-9000}
+      - REQUIRE_TLS=${REQUIRE_TLS:-true}
+      - NODE_REGISTER_TOKEN=${NODE_REGISTER_TOKEN:-}
+      - VERIFY_NODE_TLS=${VERIFY_NODE_TLS:-false}
+      - SSL_CERTFILE=${SSL_CERTFILE:-}
+      - SSL_KEYFILE=${SSL_KEYFILE:-}
+      - UVICORN_RELOAD=${UVICORN_RELOAD:-false}
+      - UVICORN_WORKERS=${UVICORN_WORKERS:-2}
     volumes:
-      # Allow overriding container config by mounting a host file via HUB_CONFIG env var.
-      # Falls back to the repository's ./src/config/hub.py by default (backwards compatible).
-      # Example: HUB_CONFIG=./configs/local_hub.py docker-compose up -d
       - ${HUB_CONFIG:-./src/config/hub.py}:/app/src/config/hub.py:ro
+      - ./certs:/app/certs:ro
       - ./src/crypto_keys:/app/src/crypto_keys
       - ./src/session_keys:/app/src/session_keys
     restart: unless-stopped
     networks:
       - prover-network
 
-# Define networks
 networks:
   prover-network:
     driver: bridge

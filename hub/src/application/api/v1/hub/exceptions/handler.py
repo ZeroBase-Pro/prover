@@ -10,4 +10,4 @@ from utils.constant import HttpStatus
 
 @hub_blueprint.exception(ValidationError)
 async def validation_error(request: Request, exception: ValidationError):
-    return http_response(args_invalid.code, args_invalid.msg, exception.message, status=HttpStatus.SERVER_ERROR)
+    return http_response(args_invalid.code, args_invalid.msg, exception.message, status=HttpStatus.INVALID_REQUEST)

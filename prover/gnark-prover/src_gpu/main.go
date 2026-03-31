@@ -37,6 +37,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/math/bits"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // CircuitData holds the data for a circuit template
@@ -800,6 +801,18 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func firstExistingPath(paths ...string) string {
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
+}
+
 func main() {
 	port := flag.Int("p", DefaultPort, "The port on which the server will listen")
 	httpPort := flag.Int("http", DefaultPort+1, "The HTTP port for health checks")
@@ -815,12 +828,18 @@ func main() {
 	}
 	log.Printf("load circuits took %v", time.Since(loadCircuitsStart))
 
+	certFile := firstExistingPath(os.Getenv("SSL_CERTFILE"), "/app/certs/tls.crt", "./certs/tls.crt")
+	keyFile := firstExistingPath(os.Getenv("SSL_KEYFILE"), "/app/certs/tls.key", "./certs/tls.key")
+	if certFile == "" || keyFile == "" {
+		log.Fatal("TLS is required but tls.crt or tls.key is missing")
+	}
+
 	// Start HTTP server for health checks
 	go func() {
 		http.HandleFunc("/health", healthCheckHandler)
 		http.HandleFunc("/ping", healthCheckHandler)
-		log.Printf("HTTP health check server starting on port %v", *httpPort)
-		if err := http.ListenAndServe(fmt.Sprintf(":%v", *httpPort), nil); err != nil {
+		log.Printf("HTTPS health check server starting on port %v", *httpPort)
+		if err := http.ListenAndServeTLS(fmt.Sprintf(":%v", *httpPort), certFile, keyFile, nil); err != nil {
 			log.Printf("HTTP server failed: %v", err)
 		}
 	}()
@@ -831,7 +850,12 @@ func main() {
 		log.Printf("failed to listen: %v", err)
 	}
 
-	s := grpc.NewServer()
+	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if err != nil {
+		log.Fatalf("Failed to load TLS credentials: %v", err)
+	}
+
+	s := grpc.NewServer(grpc.Creds(creds))
 	log.Printf("Successfully, bind port: %v", *port)
 	pb.RegisterProveServiceServer(s, &server{
 		circuits: circuits, // Pass loaded circuits to server instance

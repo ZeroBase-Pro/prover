@@ -25,13 +25,12 @@ class RSAEncryption:
     def load_private_key(self, private_key_pem:str):
         private_key = serialization.load_pem_private_key(
             private_key_pem.encode('utf-8'),
-            password=None,  # Provide password here if the private key is encrypted
+            password=None,
             backend=default_backend()
         )
         self._private_key = private_key
 
     def generate_keys(self, key_size=4096):
-        # Generate RSA key pair
         self.key_size = key_size
         self._private_key = rsa.generate_private_key(
             public_exponent=65537,
@@ -41,21 +40,18 @@ class RSAEncryption:
         self._public_key = self._private_key.public_key()
 
     def serialize_keys(self):
-        # Serialize public key to PEM format
         self.private_key_pem = self._private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption()
         ).decode('utf-8')
         
-        # Serialize private key to PEM format
         self.public_key_pem = self._public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         ).decode('utf-8')
 
     def encrypt(self, plaintext:str):
-        # Encrypt data using the public key
         ciphertext = self._public_key.encrypt(
             plaintext.encode(),
             padding.OAEP(
@@ -68,7 +64,6 @@ class RSAEncryption:
         return base64.b85encode(ciphertext).decode('utf-8')
 
     def decrypt(self, ciphertext:str):
-        # Decrypt data using the private key
         try:
             ciphertext = base64.b85decode(ciphertext)
             plaintext = self._private_key.decrypt(
@@ -125,7 +120,6 @@ class RSAEncryption:
             return False
 
     def _serialize_public_key(self):
-        # Serialize public key to PEM format
         public_pem = self._public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -133,7 +127,6 @@ class RSAEncryption:
         return public_pem
 
     def _serialize_private_key(self):
-        # Serialize private key to PEM format
         private_pem = self._private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -148,27 +141,3 @@ class RSAEncryption:
     @property
     def private_key(self):
         return self.private_key_pem
-
-
-# Example usage
-if __name__ == "__main__":
-    rsa_encryption = RSAEncryption()
-    original_text = "Test"
-
-    rsa_encryption.generate_keys()
-    rsa_encryption.serialize_keys()
-    print(rsa_encryption.public_key)
-    print(rsa_encryption.private_key)
-    
-    
-    encrypted_text = rsa_encryption.encrypt(original_text)
-    print("Encrypted:", encrypted_text)
-
-    decrypted_text = rsa_encryption.decrypt(encrypted_text)
-    print("Decrypted:", decrypted_text)
-
-    sign = rsa_encryption.sign("1234")
-    print("sign:", sign)
-
-    verify = rsa_encryption.verify("1234", signature=sign)
-    print("verify:", verify)

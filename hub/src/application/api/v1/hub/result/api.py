@@ -20,23 +20,22 @@ from config import Config
 from modules.explorer import Explorer
 from modules.encryptor import RSAEncryption
 
-from typing import List
+from typing import List, Optional
+from utils.response import request_error
 
 config = Config()
 logger = logging.getLogger(API_LOGGER)
 
-async def get_explorer():
+async def get_explorer() -> Optional[Explorer]:
     try:
         async with aiofiles.open(config.Explorer.key_path, mode='r') as file:
             key = await file.read()
     except FileNotFoundError:
-        logger.error("[API] - key file not found")
-        response = serializers.PostResultPrivateKeyNotExistResponse().model_dump()
-        return http_response(status=HttpStatus.SERVER_ERROR, **response)
-    
+        logger.warning("[API] - explorer public key file not found, skip proof sync")
+        return None
+
     rsa_encryption = RSAEncryption(public_key=key)
-    explorer = Explorer(config.Explorer.api, rsa_encryption)
-    return explorer
+    return Explorer(config.Explorer.api, rsa_encryption)
 
 @hub_blueprint.post("/result")
 @validate(json=serializers.PostResultRequest)
@@ -68,8 +67,18 @@ async def hub_post_results(request: Request, body: serializers.PostResultRequest
         response = serializers.PostResultDecryptionFailedResponse().model_dump()
         return http_response(status=HttpStatus.INVALID_REQUEST, **response)
     
-    explorer = await get_explorer()
-    await explorer.send_proof(project_name, proof_hash, duration, verifiers)
+    try:
+        explorer = await get_explorer()
+        if explorer is not None:
+            await explorer.send_proof(project_name, proof_hash, duration, verifiers)
+    except Exception as error:
+        logger.error(f"[API] - Explorer send proof failed: {error}")
+        return http_response(
+            code=request_error.code,
+            msg=request_error.msg,
+            result=str(error),
+            status=HttpStatus.SERVER_ERROR,
+        )
     
     response = serializers.PostResultSuccessfullyResponse().model_dump()
     return http_response(status=HttpStatus.OK, **response)

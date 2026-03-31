@@ -1,25 +1,31 @@
 import aiohttp
 import asyncio
 import logging
+import time
 from typing import Optional
-from utils.constant import API_LOGGER  
+from utils.constant import API_LOGGER
+from utils.observability import classify_error
+from utils.tls import aiohttp_ssl_param
 
 class HttpServer:
-    def __init__(self, address: str, session: Optional[aiohttp.ClientSession] = None, timeout: float = 6.0, logger: Optional[logging.Logger] = None) -> None:  # * 默认超时从 3s 提升到 6s（方案A）
-        """
-        Initialize the HttpServer with the target address and optional timeout.
-
-        :param address: The URL to send the GET request to.
-        :param timeout: The maximum time (in seconds) to wait for a response.
-        """
+    def __init__(
+        self,
+        address: str,
+        session: Optional[aiohttp.ClientSession] = None,
+        timeout: float = 6.0,
+        logger: Optional[logging.Logger] = None,
+        verify_tls: bool = True,
+        tls_certfile: Optional[str] = None,
+    ) -> None:
         self.address = address
-        self.logger = logger or logging.getLogger(API_LOGGER)  
+        self.logger = logger or logging.getLogger(API_LOGGER)
         self._session = session
         self._timeout = timeout
+        self._verify_tls = verify_tls
+        self._tls_certfile = tls_certfile
 
     @property
     def session(self) -> aiohttp.ClientSession:
-        """Prefer an injected shared session if provided; otherwise create one."""
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self._timeout))
         return self._session
@@ -27,57 +33,123 @@ class HttpServer:
     async def close(self):
         if self._session and not self._session.closed:
             await self._session.close()
+
+    def _request_ssl(self):
+        return aiohttp_ssl_param(self._verify_tls, self._tls_certfile)
     
     async def ping(self) -> bool:
-        """
-        Asynchronously send a GET request to the server address and check if the response status is 200.
+        result = await self.ping_details()
+        return result["success"]
 
-        :return: True if the server responds with status 200, False otherwise.
-        """
+    async def ping_details(self) -> dict:
         url = f"{self.address}/ping"
+        started_at = time.perf_counter()
 
         try:
-            self.logger.info(f"Attempting to ping {url}")
-            async with self.session.get(url, ssl=False) as response:
-                self.logger.info(f"Received status {response.status} from {url}")
-                return response.status == 200
-        except asyncio.TimeoutError:
-            self.logger.warning(f"Ping to {url} timed out")
-            return False
-        except aiohttp.ClientError as e:
-            self.logger.error(f"Client error occurred while pinging {url}: {e}")
-            return False
-        except Exception as e:
-            self.logger.exception(f"An unexpected error occurred while pinging {url}: {e}")
-            return False
+            async with self.session.get(url, ssl=self._request_ssl()) as response:
+                duration_ms = (time.perf_counter() - started_at) * 1000
+                success = response.status == 200
+                return {
+                    "success": success,
+                    "duration_ms": duration_ms,
+                    "status": response.status,
+                    "error_type": None if success else "http_status_error",
+                    "error_msg": None if success else f"unexpected_http_status:{response.status}",
+                }
+        except asyncio.TimeoutError as error:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            return {
+                "success": False,
+                "duration_ms": duration_ms,
+                "status": None,
+                "error_type": classify_error(error),
+                "error_msg": str(error),
+            }
+        except aiohttp.ClientError as error:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            return {
+                "success": False,
+                "duration_ms": duration_ms,
+                "status": None,
+                "error_type": classify_error(error),
+                "error_msg": str(error),
+            }
+        except Exception as error:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            return {
+                "success": False,
+                "duration_ms": duration_ms,
+                "status": None,
+                "error_type": classify_error(error),
+                "error_msg": str(error),
+            }
     
     async def push_task(self, proof_hash: str, signature: str) -> bool:
-        """
-        Asynchronously send a POST request to the server address with a proof hash.
+        result = await self.push_task_details(proof_hash, signature)
+        return result["success"]
 
-        :param proof_hash: The hash to send to the server.
-        :return: True if the server responds with status 200, False otherwise.
-        """
+    async def push_task_details(self, proof_hash: str, signature: str) -> dict:
         url = f"{self.address}/push_task"
         payload = {"proof_hash": proof_hash, "signature": signature}
+        started_at = time.perf_counter()
 
         try:
-            self.logger.info(f"Attempting to push task to {url} with payload: {payload}")
-            async with self.session.post(url, json=payload, ssl=False) as response:
-                self.logger.info(f"Received status {response.status} from {url}")
-                return response.status == 200
-        except asyncio.TimeoutError:
-            self.logger.warning(f"Push task to {url} timed out, retrying once")  
+            async with self.session.post(url, json=payload, ssl=self._request_ssl()) as response:
+                duration_ms = (time.perf_counter() - started_at) * 1000
+                success = response.status == 200
+                return {
+                    "success": success,
+                    "duration_ms": duration_ms,
+                    "status": response.status,
+                    "retries": 0,
+                    "timeout": False,
+                    "error_type": None if success else "http_status_error",
+                    "error_msg": None if success else f"unexpected_http_status:{response.status}",
+                }
+        except asyncio.TimeoutError as error:
             try:
-                async with self.session.post(url, json=payload, ssl=False) as response: 
-                    self.logger.info(f"[Retry] Received status {response.status} from {url}") 
-                    return response.status == 200  
-            except asyncio.TimeoutError:
-                self.logger.warning(f"[Retry] Push task to {url} timed out again")  
-                return False 
-        except aiohttp.ClientError as e:
-            self.logger.error(f"Client error occurred while pushing task to {url}: {e}")
-            return False
-        except Exception as e:
-            self.logger.exception(f"An unexpected error occurred while pushing task to {url}: {e}")
-            return False
+                async with self.session.post(url, json=payload, ssl=self._request_ssl()) as response:
+                    duration_ms = (time.perf_counter() - started_at) * 1000
+                    success = response.status == 200
+                    return {
+                        "success": success,
+                        "duration_ms": duration_ms,
+                        "status": response.status,
+                        "retries": 1,
+                        "timeout": True,
+                        "error_type": None if success else "http_status_error",
+                        "error_msg": None if success else f"unexpected_http_status:{response.status}",
+                    }
+            except asyncio.TimeoutError as retry_error:
+                duration_ms = (time.perf_counter() - started_at) * 1000
+                return {
+                    "success": False,
+                    "duration_ms": duration_ms,
+                    "status": None,
+                    "retries": 1,
+                    "timeout": True,
+                    "error_type": classify_error(retry_error),
+                    "error_msg": str(retry_error or error),
+                }
+        except aiohttp.ClientError as error:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            return {
+                "success": False,
+                "duration_ms": duration_ms,
+                "status": None,
+                "retries": 0,
+                "timeout": False,
+                "error_type": classify_error(error),
+                "error_msg": str(error),
+            }
+        except Exception as error:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            return {
+                "success": False,
+                "duration_ms": duration_ms,
+                "status": None,
+                "retries": 0,
+                "timeout": False,
+                "error_type": classify_error(error),
+                "error_msg": str(error),
+            }

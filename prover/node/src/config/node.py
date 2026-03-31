@@ -1,3 +1,17 @@
+from pathlib import Path
+
+
+def _default_tls_path(filename: str) -> str:
+    candidates = [
+        Path("/app/certs") / filename,
+        Path(__file__).resolve().parents[2] / "certs" / filename,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return ""
+
+
 class Config:
     class Env:
         app = "Node"
@@ -9,6 +23,12 @@ class Config:
         project_path = "./utils/project.json"
         oauth_provider_resolver_path = "./utils/oauth_provider_resolver.json"
         proxy = ""
+        node_register_token = ""
+        require_tls = True
+        verify_hub_tls = False
+        verify_prover_tls = False
+        tls_certfile = _default_tls_path("tls.crt")
+        tls_keyfile = _default_tls_path("tls.key")
 
     class Server:
         class Grpc:
@@ -16,16 +36,16 @@ class Config:
             port = 50050
 
         class FastAPI:
-            host = "127.0.0.1"
+            host = "0.0.0.0"
             port = 50051
 
     class Hub:
         class API:
-            url = "http://host.docker.internal:9000"
+            url = "https://your-hub-host"
 
         class Info:
-            grpc = "127.0.0.1:50050"
-            http = "http://127.0.0.1:50051"
+            grpc = "your-node-host:50050"
+            http = "https://your-node-host:50051"
 
     class Prover:
         class Circom:

@@ -2,37 +2,35 @@ import asyncio
 import aiohttp
 import aiofiles
 import logging
+import os
 from modules.encryptor import RSAEncryption
 import config
 from utils.constant import CLI_LOGGER
+from utils.tls import aiohttp_ssl_param
 from typing import List
 import ujson
 
 logger = logging.getLogger(CLI_LOGGER)
 
 class Hub:
-    def __init__(self, hub_api: str, session_key_path: str, config:config.SampleConfig):
-        """
-        Initialize the Hub instance.
-
-        Args:
-            hub_api (str): The base URL for the hub API.
-            session_key_path (str): Path to the session key file.
-        """
+    def __init__(self, hub_api: str, session_key_path: str, config:config.NodeConfig):
         self.hub_api = hub_api
         self.session_key_path = session_key_path
         self.config = config
 
-    async def send_result(self, project_name: str, proof_hash: str, duration: int, verifiers: List[str]) -> None:
-        """
-        Send the computation result to the hub API.
+    def _node_register_headers(self) -> dict:
+        token = getattr(self.config.Env, "node_register_token", "") or os.getenv("NODE_REGISTER_TOKEN", "")
+        if not token:
+            return {}
+        return {"X-Node-Token": token}
 
-        Args:
-            project_name (str): Name of the project.
-            proof_hash (str): Proof hash of the computation.
-            duration (int): Time taken for the computation in seconds.
-            verifier (str): Verifier identifier.
-        """
+    def _request_ssl(self):
+        return aiohttp_ssl_param(
+            getattr(self.config.Env, "verify_hub_tls", True),
+            getattr(self.config.Env, "tls_certfile", ""),
+        )
+
+    async def send_result(self, project_name: str, proof_hash: str, duration: int, verifiers: List[str]) -> None:
         hub_api = f"{self.hub_api}/api/v1/hub/result"
 
         try:
@@ -43,7 +41,6 @@ class Hub:
             return
         
         encryptor = RSAEncryption(public_key=session_key)
-        # Encrypt the data
         encrypted_project_name = encryptor.encrypt(project_name)
         encrypted_proof_hash = encryptor.encrypt(proof_hash)
         encrypted_duration = encryptor.encrypt(str(duration))
@@ -58,7 +55,12 @@ class Hub:
 
         async with aiohttp.ClientSession() as session:
             try:
-                response = await session.post(hub_api, json=body, proxy=self.config.Env.proxy)
+                response = await session.post(
+                    hub_api,
+                    json=body,
+                    proxy=self.config.Env.proxy,
+                    ssl=self._request_ssl(),
+                )
                 if response.status == 200:
                     logger.info("[Result] - Successfully sent result to the hub.")
                 else:
@@ -71,15 +73,6 @@ class Hub:
                 logger.error(f"[Result] - Unexpected error: {e}")
 
     async def update_verifier(self, proof_hash: str, verifiers: List[str]) -> None:
-        """
-        Send the computation result to the hub API.
-
-        Args:
-            project_name (str): Name of the project.
-            proof_hash (str): Proof hash of the computation.
-            duration (int): Time taken for the computation in seconds.
-            verifier (str): Verifier identifier.
-        """
         hub_api = f"{self.hub_api}/api/v1/hub/verifier"
 
         try:
@@ -90,7 +83,6 @@ class Hub:
             return
         
         encryptor = RSAEncryption(public_key=session_key)
-        # Encrypt the data
         encrypted_proof_hash = encryptor.encrypt(proof_hash)
         encrypted_verifiers = encryptor.encrypt(ujson.dumps(verifiers))
 
@@ -101,7 +93,12 @@ class Hub:
 
         async with aiohttp.ClientSession() as session:
             try:
-                response = await session.put(hub_api, json=body, proxy=self.config.Env.proxy)
+                response = await session.put(
+                    hub_api,
+                    json=body,
+                    proxy=self.config.Env.proxy,
+                    ssl=self._request_ssl(),
+                )
                 if response.status == 200:
                     logger.info("[update_verifier] - Successfully update verifier to the hub.")
                     return True
@@ -118,12 +115,6 @@ class Hub:
                 return False
 
     async def send_heartbeat(self, interval: int = 10) -> None:
-        """
-        Send heartbeat to the hub API at regular intervals.
-
-        Args:
-            interval (int): The time interval (in seconds) between each heartbeat. Defaults to 10 seconds.
-        """
         hub_api = f"{self.hub_api}/api/v1/hub/node"
         logger.info(f"[Heartbeat] - Starting heartbeat to {hub_api} every {interval} seconds.")
         try:
@@ -132,17 +123,26 @@ class Hub:
         except FileNotFoundError:
             logger.error("[API] - Session key file not found.")
             return
-        print("Session Key:", session_key)
         encryptor = RSAEncryption(public_key=session_key)
 
         grpc_info = encryptor.encrypt(self.config.Hub.Info.grpc)
         http_info = encryptor.encrypt(self.config.Hub.Info.http)
         body = {"grpc_info": grpc_info, "http_info": http_info}
+        headers = self._node_register_headers()
+
+        if not headers:
+            logger.warning("[Heartbeat] - NODE_REGISTER_TOKEN is empty; hub registration may be rejected.")
 
         while True:
             async with aiohttp.ClientSession() as session:
                 try:
-                    response = await session.post(hub_api, json=body, proxy=self.config.Env.proxy)
+                    response = await session.post(
+                        hub_api,
+                        json=body,
+                        headers=headers,
+                        proxy=self.config.Env.proxy,
+                        ssl=self._request_ssl(),
+                    )
                     if response.status == 200:
                         logger.info("[Heartbeat] - Successfully sent heartbeat to the hub.")
                     else:

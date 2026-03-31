@@ -5,7 +5,7 @@ from sanic import response
 class Paginator:
     def __init__(self, query, page_size):
         self.query = query
-        self.page_size = max(1, int(page_size)) 
+        self.page_size = max(1, int(page_size))
         self._total_items = 0
         self._total_pages = 0
         self._items = []
@@ -13,7 +13,7 @@ class Paginator:
 
     async def paginate(self, page:int=1):
         self._total_items = await self.query.count()
-        self.page = max(1, int(page)) 
+        self.page = max(1, int(page))
         self._total_pages = (self._total_items + self.page_size - 1) // self.page_size
 
         start = (self.page - 1) * self.page_size

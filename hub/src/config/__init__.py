@@ -22,31 +22,25 @@ class Config:
         return cls._instance
 
     def __init__(self) -> HubConfig:
-        if self._initialized:  # Prevent double initialization
+        if self._initialized:
             return
 
         self._load_config()
         self._initialized = True
 
     def _load_config(self):
-        """
-        Dynamically load configuration based on MODE environment variable.
-        """
         mode = os.environ.get('MODE', 'HUB').lower()
         try:
             custom_config_module = importlib.import_module(f'.{mode}', package=__package__)
-            self._config: HubConfig = custom_config_module.Config  # instantiate the concrete config class
+            self._config: HubConfig = custom_config_module.Config
             logging.info(f"[Config] - [{mode}] is loaded")
         except ImportError:
-            logging.error(f"[Config] - [{mode}] cannot be imported, falling back to [SAMPLE]")
-            self._config = HubConfig()  # use default configuration
+            logging.error(f"[Config] - [{mode}] cannot be imported, falling back to [HUB]")
+            self._config = HubConfig()
         finally:
             os.environ.setdefault('LOG_PATH', self._config.Env.logs_path or "logs")
 
     def __getattr__(self, name):
-        """
-        Dynamically proxy configuration attributes to the loaded config instance.
-        """
         if hasattr(self._config, name):
             return getattr(self._config, name)
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
