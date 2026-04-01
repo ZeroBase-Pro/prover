@@ -70,3 +70,6 @@ temp/
 
 # External volumes
 volumes/
+
+src/explorer_public_key
+
